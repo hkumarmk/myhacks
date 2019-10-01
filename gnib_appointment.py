@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import datetime
 import logging
 import os
 import re
@@ -33,11 +34,45 @@ dob = os.environ["DOB"]
 nationality = os.environ.get("NATIONALITY", "India, Republic of")
 email = os.environ["EMAIL"]
 passport_number = os.environ["PASSPORT_NUMBER"]
-poll_frequency = os.environ.get("POLL_FREQUENCY", 30)
+poll_freq = os.environ.get("POLL_FREQUENCY", 30)
+
+def more_chance():
+    """
+    There are more chances to get appointment in below times
+
+    between 10:00 - 10:30
+    first 10 minutes of any hour
+    between 2:30 PM - 3:00 PM
+    """
+    now = datetime.datetime.now()
+    now_time = now.time()
+    now_min = now.minute
+    # first 15 mins of every hour
+    if now_min < 15 or now_min > 55:
+        return True
+    
+    # between 10:00 and 10:30
+    ten = datetime.time(9,55)
+    ten_30 = datetime.time(10, 30)
+    if ten <= now_time <= ten_30:
+        return True
+
+    # Between 2:25 and 3:00
+    two_25 = datetime.time(14,25)
+    three = datetime.time(15,0)
+    if two_25 <= now_time <= three:
+        return True
+
+    return False
+
+def poll_frequency(normal_frequency):
+    if more_chance():
+        return 10
+    return normal_frequency
 
 def wait_appointment_list(driver):
     try:
-        element = WebDriverWait(driver, 20).until(
+        element = WebDriverWait(driver, 30).until(
             EC.presence_of_element_located((By.CLASS_NAME, "table"))
         )
     except:
@@ -103,13 +138,18 @@ def fill_form(driver):
     for i in range(10):
         driver.execute_script("arguments[0].click()", find_slot)
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        element = WebDriverWait(driver, 20).until(
+
+        try:
+            element = WebDriverWait(driver, 30).until(
                     EC.element_to_be_clickable((By.ID, "btSrch4Apps")))
+        except:
+            return False
+
         appointment, rows = wait_appointment_list(driver)
 
         if not appointment:
             log.info("No appointment")
-            time.sleep(poll_frequency)
+            time.sleep(poll_frequency(poll_freq))
         else:
             log.info("Got Appointment")
             return True
